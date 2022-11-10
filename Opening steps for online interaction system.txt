@@ -1,0 +1,36 @@
+3run the project:
+=================
+open "xampp control panel" sereve to click start the buttons of mysql and appache.
+
+connect the database:
+=====================
+to open "sqlyog enterprise" to click connect.
+
+view the tables of creating:
+============================
+"sqlyog enterprise"-open 
+to open table data and check the id.
+leftside we can see the studentinteraction that can be open it. otherwise we see all student and faculties details.
+
+run the code
+============
+to open file-open recent-interaction-user/gamana/pycharm.
+to click terminal can buttom and write flask run and enter
+
+view and update interaction details:
+====================================
+http://127.0.0.1:5000/ this website for opening from online interaction.
+BizPage Bootstrap template-127.0.01:5000/viewnotifications.
+
+Admin
+=====
+username:Admin
+password:Admin
+
+Opening from student and faculty:
+=================================
+using their passwords.
+Admin can open to check "sqlyog enterprise" server and go to table to see username and password. 
+
+
+ 

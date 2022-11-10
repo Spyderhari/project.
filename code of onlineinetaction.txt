@@ -1,0 +1,2114 @@
+from flask import request,Flask,render_template,session,redirect,url_for
+import pymysql
+from flask import Flask, request, render_template, send_from_directory
+import pandas as pd
+from pylab import *
+from random import *
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import os
+app=Flask(__name__)
+app.config['SECRET_KEY']='b0b4fbefdc48be27a6123605f02b6b86'
+db = pymysql.connect(host='localhost',user='root',password='',db='StudentInteraction')
+cursor=db.cursor()
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/Home")
+def Home():
+    return render_template("Home.html")
+
+@app.route("/Student",methods=['POST','GET'])
+def Student():
+    if request.method == "POST":
+        name = request.form["name"]
+        Email = request.form["email"]
+        Number = request.form["number"]
+        Date = request.form["dateofbirth"]
+        Gender = request.form["gender"]
+        # otp = randint(000000, 999999)
+        address = request.form["address"]
+        branch=request.form["branch"]
+        studentstype=request.form["studentstype"]
+        password=request.form["password"]
+        cpassword=request.form["cpassword"]
+        RollNumber = "REQUEST"
+        if password== cpassword:
+            sql="select * from sreg where name='%s' and email='%s'" %(name,Email)
+            x=cursor.execute(sql)
+            print(x)
+            if x>0:
+                print("user name already exist")
+                return render_template('Student Registration.html', msg1="invalid_username")
+            else:
+                sql = "insert into sreg(name,email,number,dateofbirth,gender,address,rollnumber,branch,studentstype,password,cpassword) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+                val=(name,Email,Number,Date,Gender,address,RollNumber,branch,studentstype,password,cpassword)
+                cursor.execute(sql,val)
+                db.commit()
+                return render_template('Student Registration.html', msg="success")
+        else:
+            return render_template('Student Registration.html', msgf="success")
+
+    return render_template('Student Registration.html')
+
+@app.route("/StudentLogin",methods=['POST','GET'])
+def StudentLogin():
+    if request.method=='POST':
+        rollnumber=request.form["rollnumber"]
+        password=request.form["password"]
+        try:
+            sql="select * from sreg where rollnumber=%s and password=%s "
+            values = (rollnumber, password)
+            X = cursor.execute(sql, values)
+            Results = cursor.fetchall()
+            # if email in Results:
+            #     return render_template("StudentLogin",mgdf="no")
+            if X > 0:
+                print("results[0]")
+                session["np"] = Results[0][0]
+                Name = Results[0][1]
+                session["Name"] = Results[0][1]
+                session["OTp"] = Results[0][6]
+                session["email"]=Results[0][2]
+                session["rollnumberlogin"]=Results[0][7]
+                global Email
+                Email=session["email"]
+                return render_template("StudentHome.html", msg="success",NAME=Name)
+            else:
+                return render_template("StudentLogin.html",mseg="not found")
+        except:
+            return render_template("StudentLogin.html",mm="not")
+    return render_template("StudentLogin.html")
+
+@app.route("/jk")
+def jk():
+    return render_template("StudentHome.html")
+
+
+@app.route("/Viewnotification")
+def Viewnotification():
+    try:
+        sql = "select * from que"
+        results = pd.read_sql_query(sql, db)
+        result = results.drop(["sl"], axis=1)
+        avb = result.drop(["question"], axis=1)
+        data = str(avb.values[0][0])
+        data1=data.split(";")
+        sql="select * from calculation"
+        vb=pd.read_sql_query(sql,db)
+        if len(vb)==0:
+            for v in data1:
+                options=v
+                global dfghj
+                dfghj=0
+                sql="insert into calculation (ansewer,numbercounts) values ('%s','%s')"%(options,dfghj)
+                cursor.execute(sql)
+                db.commit()
+        else:
+            return render_template("Viewnotification.html", row_val=result.values.tolist(), data1=data1)
+
+        return render_template("Viewnotification.html", row_val=result.values.tolist(),data1=data1)
+    except:
+        return render_template("Viewnotification.html",msg="invalidchance")
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+@app.route("/calculation",methods=['POST','GET'])
+def calculation():
+    if request.method=='POST':
+        n1=request.form["question"]
+        sql="select * from calculation where ansewer='%s'"%(n1)
+        res=pd.read_sql_query(sql,db)
+        countnumber=res["numbercounts"].values[0]
+        countnumber+=1
+        sql = "update calculation set numbercounts=%s where ansewer='%s'" % (countnumber, n1)
+        cursor.execute(sql)
+        db.commit()
+        return redirect(url_for('graph'))
+
+
+@app.route("/graph")
+def graph():
+    try:
+        sql="select * from calculation"
+        cursor.execute(sql)
+        results=pd.read_sql_query(sql,db)
+        hui=results["numbercounts"].tolist()
+        cui=results["ansewer"].tolist()
+        a = cui
+        b = hui
+        c = []
+        k=len(hui)
+        for i in range(k):
+            d = a[i], b[i]
+            c.append(d)
+        print(list(c))
+        d = {}
+        for i in c:
+            if i[0] not in d:
+                d[i[0]] = i[1]
+            else:
+                d[i[0]].append(i[1])
+        print("ddddddd")
+        print(d)
+        print("00000000000000")
+        que_opt=[]
+        que_count=[]
+        for x in hui:
+            que_count.append(x)
+        for y in cui:
+            que_opt.append(y)
+        y = np.array(que_count)
+        mylabels = que_opt
+        print("11111111111")
+        sql = "select * from que"
+        cursor.execute(sql)
+        results = pd.read_sql_query(sql, db)
+        hui = results["question"][0]
+        print(hui)
+        plt.title(d)
+        # for v in que_count:
+        #     if v==int(0):
+        #         print("qqqqq")
+        #
+        #     else:
+        #         print("oooo")
+        #         per=v/sum(que_count)
+        #         print(per)
+
+        plt.pie(y, labels=mylabels,data=d)
+        plt.savefig('static/ml.png')
+        print("22222")
+        plt.show()
+        return redirect(url_for('jiods'))
+    except:
+        return redirect(url_for('Viewnotification'))
+
+# for v in que_count:
+#     if v==int(0):
+#         print("qqqqq")
+#
+#     else:
+#         print("oooo")
+#         per=v/sum(que_count)
+#         print(per)
+#         break
+
+
+
+
+@app.route("/Home1")
+def Home1():
+    return render_template("StudentHome1.html")
+
+@app.route("/ViewProfile")
+def ViewProfile():
+    sql="Select * from sreg where slno=%s "%(session["np"])
+    cursor.execute(sql)
+    result = pd.read_sql_query(sql, db)
+    result["Update"]="Update"
+    print(result)
+    return render_template("Student View Profile.html",col_name=result.columns.values,row_val=result.values.tolist())
+
+@app.route("/profileupdate/<s1>/<s2>")
+def profileupdate(s1=0,s2=""):
+    session["pu"]=s1
+    print("adga")
+    return render_template("profileupdate.html",s1=s1,s2=s2)
+
+@app.route("/klmiops",methods=['POST','GET'])
+def klmiops():
+    print("11111111111")
+    fi=request.form["studentstype"]
+    print(session["pu"])
+    sql = "update sreg set studentstype=%s where slno=%s"
+    val=(fi,session["pu"])
+    cursor.execute(sql,val)
+    db.commit()
+    print(fi)
+    return redirect(url_for('ViewProfile'))
+
+@app.route("/PrivateRequestsToStudents",methods=['POST','GET'])
+def PrivateRequestsToStudents():
+    sql="select * from sreg"
+    cursor.execute(sql)
+    X = cursor.fetchall()
+    results=pd.read_sql_query(sql,db)
+    print(results)
+    global List_of_names
+    List_of_names=results["rollnumber"]
+    print("sssssssssss")
+    List_of_names=pd.DataFrame(List_of_names)
+    LIST=[]
+    print("dddddddddd")
+    for i in List_of_names["rollnumber"]:
+        print("fffffff")
+        if i==session["rollnumberlogin"]:
+            print("gggggggggggggg")
+            continue
+        LIST.append(i)
+    print(LIST)
+    if request.method=='POST':
+        rollnumber=request.form["rollnumber"]
+        # declare roll number in seesion
+        session["rollnumber"] =rollnumber
+        print(session["rollnumber"])
+        sql="select * from sreg where rollnumber='%s'"%(rollnumber)
+        cursor.execute(sql)
+        rest=cursor.fetchall()
+        return render_template("Student Chat.html")
+    return render_template("Post Requests To Students.html",names=LIST)
+
+def convertToBinaryData(filename):
+    # Convert digital data to binary format
+    with open(filename, 'rb') as file:
+        binaryData = file.read()
+    return binaryData
+
+@app.route("/StudentChat",methods=['POST','GET'])
+def StudentChat():
+    if request.method=='POST':
+        studentchat=request.form["chat"]
+        print(studentchat)
+        images=request.form["images"]
+        files=request.form["files"]
+        if images=='':
+            if files=='':
+                sql = "insert into gf (origin,source,chat,images,files) values(%s,%s,%s,%s,%s)"
+                insert_blob_tuple = (session["rollnumber"], session["rollnumberlogin"], studentchat, '', '')
+                print("bbbbbbbbbbbbb")
+                cursor.execute(sql, insert_blob_tuple)
+                db.commit()
+                return render_template("Student Chat.html", message="success")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                filez.close()
+                sql = "insert into gf (origin,source,chat,images,files) values(%s,%s,%s,%s,%s)"
+                insert_blob_tuple = (session["rollnumber"], session["rollnumberlogin"], studentchat, '', file_content)
+                print("bbbbbbbbbbbbb")
+                cursor.execute(sql, insert_blob_tuple)
+                db.commit()
+                return render_template("Student Chat.html", message="success")
+        else:
+            if files=='':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into gf (origin,source,chat,images,files) values(%s,%s,%s,%s,%s)"
+                insert_blob_tuple = (session["rollnumber"], session["rollnumberlogin"], studentchat,empPicture,'')
+                print("bbbbbbbbbbbbb")
+                cursor.execute(sql, insert_blob_tuple)
+                db.commit()
+                return render_template("Student Chat.html", message="success")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into gf (origin,source,chat,images,files) values(%s,%s,%s,%s,%s)"
+                insert_blob_tuple = (
+                session["rollnumber"], session["rollnumberlogin"], studentchat, empPicture, file_content)
+                # sql="insert into gf (origin,source,chat,images,files,ido,ids) values(%s,%s,%s,%s,%s,%s,%s)"
+                # insert_blob_tuple = (session["Name"], session["student"], studentchat,empPicture,file_content, session["np"], session["iop"])
+                print("bbbbbbbbbbbbb")
+                cursor.execute(sql, insert_blob_tuple)
+                db.commit()
+                return render_template("Student Chat.html", message="success")
+
+    return render_template("Student Chat.html")
+
+@app.route("/PublicStudentChat",methods=['POST','GET'])
+def PublicStudentChat():
+    if request.method=='POST':
+        Msg=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+        if images=='':
+            if files=='':
+                sql = "insert into publicchat (origin,chat,images,files) values(%s,%s,%s,%s)"
+                val = (session["rollnumberlogin"], Msg, '', '')
+                cursor.execute(sql, val)
+                db.commit()
+                print("aaaaaaaaaa")
+                return render_template("Public Student Chat.html", msg="success")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                sql = "insert into publicchat (origin,chat,images,files) values(%s,%s,%s,%s)"
+                val = (session["rollnumberlogin"], Msg, '', file_content)
+                cursor.execute(sql, val)
+                db.commit()
+                print("aaaaaaaaaa")
+                return render_template("Public Student Chat.html", msg="success")
+        else:
+            if files=='':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values(%s,%s,%s,%s)"
+                val = (session["rollnumberlogin"], Msg, empPicture, '')
+                cursor.execute(sql, val)
+                db.commit()
+                print("aaaaaaaaaa")
+                return render_template("Public Student Chat.html", msg="success")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values(%s,%s,%s,%s)"
+                val = (session["rollnumberlogin"], Msg, empPicture, file_content)
+                cursor.execute(sql, val)
+                db.commit()
+                print("aaaaaaaaaa")
+                return render_template("Public Student Chat.html", msg="success")
+    return render_template("Public Student Chat.html")
+
+@app.route("/StudentsFacultyChatHome")
+def StudentsFacultyChatHome():
+    return render_template("Students Faculty Chat Home.html")
+# students chat to faculty private
+@app.route("/PrivateStudentChatToFaculty",methods=['POST','GET'])
+def PrivateStudentChatToFaculty():
+    try:
+        sql="select * from freg "
+        cursor.execute(sql)
+        X = cursor.fetchall()
+        # session["mji"]=X[0][5]
+        print("|||||||||||||||||")
+        # print(session["mji"])
+        results = pd.read_sql_query(sql, db)
+        global List_of_names
+        List_of_names = results["id"]
+        List_of_names = pd.DataFrame(List_of_names)
+        LIST = []
+        for i in List_of_names["id"]:
+            LIST.append(i)
+        print(LIST)
+        if request.method == 'POST':
+            idd = request.form["id"]
+            session["id"] = idd
+            sql="select * from freg where id='%s'"%(session["id"])
+            cursor.execute(sql)
+            rs=pd.read_sql_query(sql,db)
+            session["jkh"]=rs["id"].values[0]
+            return render_template("Private Student Chat To Faculty.html")
+    except:
+        return render_template("Private Student Chat To Faculty.html",msg="info")
+    return render_template("Private Student Chat To Faculty Select.html",names=LIST)
+
+@app.route("/PrivateFacultyStudentChat",methods=['POST','GET'])
+def PrivateFacultyStudentChat():
+    if request.method=='POST':
+        Chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+        if images == '':
+            if files == '':
+
+                sql = "insert into privatestudentfacultychat (origin,source,chat,images,files) values(%s,%s,%s,%s,%s)"
+                val = (session["rollnumberlogin"], session["jkh"], Chat,'', '')
+                cursor.execute(sql, val)
+                db.commit()
+                render_template("Private Student Chat To Faculty.html", msg="u")
+
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                sql = "insert into privatestudentfacultychat (origin,source,chat,images,files) values(%s,%s,%s,%s,%s)"
+                val = (session["rollnumberlogin"], session["jkh"], Chat, '',file_content)
+                cursor.execute(sql, val)
+                db.commit()
+                render_template("Private Student Chat To Faculty.html", msg="u")
+
+        else:
+            if files == '':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into privatestudentfacultychat (origin,source,chat,images,files) values(%s,%s,%s,%s,%s)"
+                val = (session["rollnumberlogin"], session["jkh"], Chat, empPicture,'')
+                cursor.execute(sql, val)
+                db.commit()
+                render_template("Private Student Chat To Faculty.html", msg="u")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into privatestudentfacultychat (origin,source,chat,images,files) values(%s,%s,%s,%s,%s)"
+                val = (session["rollnumberlogin"], session["jkh"], Chat, empPicture,file_content)
+                cursor.execute(sql, val)
+                db.commit()
+                render_template("Private Student Chat To Faculty.html", msg="u")
+    return render_template("Private Student Chat To Faculty.html")
+
+@app.route("/PublicStudentChatToFaculty",methods=['POST','GET'])
+def PublicStudentChatToFaculty():
+    if request.method=='POST':
+        Chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+
+        if images == '':
+            if files == '':
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                val = (session["rollnumberlogin"], Chat,'', '')
+                cursor.execute(sql, val)
+                db.commit()
+                return render_template("Public Student Chat To Faculty.html", msg="success")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                val = (session["rollnumberlogin"], Chat, '', file_content)
+                cursor.execute(sql, val)
+                db.commit()
+                return render_template("Public Student Chat To Faculty.html", msg="success")
+
+        else:
+            if files == '':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                val = (session["rollnumberlogin"], Chat, empPicture, '')
+                cursor.execute(sql, val)
+                db.commit()
+                return render_template("Public Student Chat To Faculty.html", msg="success")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                val = (session["rollnumberlogin"], Chat, empPicture, file_content)
+                cursor.execute(sql, val)
+                db.commit()
+                return render_template("Public Student Chat To Faculty.html", msg="success")
+    return render_template("Public Student Chat To Faculty.html")
+
+@app.route("/PostRequestsToAdmin",methods=['POST','GET'])
+def PostRequestsToAdmin():
+    if request.method=='POST':
+        chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+        a = "admin"
+        if images == '':
+            if files == '':
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["rollnumberlogin"],chat, '', '')
+                cursor.execute(sql, values)
+                db.commit()
+                return render_template("Post Requests To Admin.html", msg="success")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["rollnumberlogin"],chat, '', file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return render_template("Post Requests To Admin.html", msg="success")
+
+        else:
+            if files == '':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["rollnumberlogin"],chat, empPicture, '')
+                cursor.execute(sql, values)
+                db.commit()
+                return render_template("Post Requests To Admin.html", msg="success")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,source,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["rollnumberlogin"], chat, empPicture, file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return render_template("Post Requests To Admin.html", msg="success")
+    return render_template("Post Requests To Admin.html")
+
+@app.route("/ViewPosts")
+def ViewPosts():
+    return render_template("ViewPost.html")
+
+@app.route("/student")
+def student():
+    return render_template("student.html")
+
+@app.route("/ViewPrivateChat")
+def ViewPrivateChat():
+    sql="select * from gf where origin='%s'"%((session["rollnumberlogin"]))
+    cursor.execute(sql)
+    result=pd.read_sql_query(sql,db)
+    
+    for i in range(result.shape[0]):
+        my_content = result['files'][i].decode('utf-8')
+        with open(f"Output-{result['slno'][i]}.txt", "w") as text_file:
+            text_file.write(my_content)
+    results=result.drop(["ido","ids","files"],axis=1)
+    dfg=results.drop(["origin"],axis=1)
+    print(dfg)
+    # dfg["Action"]="Replay"
+    C=session["Name"]
+    return render_template("ViewPrivateChat.html",col_name=dfg.columns.values,row_val=dfg.values.tolist(),C=C,d=session["rollnumberlogin"])
+
+#jkggggggggggggggggggggg
+
+@app.route("/image/<s1>")
+def image(s1=0):
+    sql = "SELECT images from gf where slno='%s'" % (s1)
+    cursor.execute(sql)
+    record = cursor.fetchall()
+    print(record)
+    print("mmmmmmmmmmmmmmmm")
+    image = record[0][0]
+    len_img=len(image)
+
+    if len_img==0:
+        return render_template("image.html",msj="notfound")
+    else:
+        print(type(image))
+        with open("static/klo.jpg", "wb") as img:
+            img.write(image)
+        print(s1)
+        return render_template("image.html", img="/static/sdfgh.jpg")
+
+
+
+@app.route("/View/<s1>")
+def View(s1=0):
+    print("aaaaaaaaaaaaaaaaaa")
+    sql = "select * from gf  where slno=%s AND files IS NULL "% (s1)
+    print(s1)
+    # cursor.execute(sql)
+    # cursor.fetchall()
+    results=pd.read_sql_query(sql,db)
+    # my_content=results['files'][0].decode('utf-8')
+    #
+    # with open("Output.txt", "w") as text_file:
+    #     text_file.write(my_content)
+    #
+    result=results["files"]
+    # name=results[""]
+    result=pd.DataFrame(result)
+    print(result)
+    return render_template("View.html",col_name=result.columns.values,row_val=result.values.tolist())
+
+@app.route("/Facul")
+def Facul():
+    return render_template("Facul.html")
+
+@app.route("/ViewPublicChat")
+def ViewPublicChat():
+    try:
+        sql="select * from publicchat "
+        cursor.execute(sql)
+        cursor.fetchall()
+        result=pd.read_sql_query(sql,db)
+        result["Counter"]="Counter"
+        fv="Anomly"+session["rollnumberlogin"]
+        return render_template("ViewPublicChat.html",col_name=result.columns.values,row_val=result.values.tolist(),m=session["rollnumberlogin"],vf=fv)
+    except:
+        return render_template("ViewPublicChat.html",msg="ni")
+
+@app.route('/wer',methods=['POST','GET'])
+def wer():
+    return render_template("wer.html")
+
+@app.route("/werananomy")
+def werananomy():
+    return render_template("werananomy.html")
+
+@app.route("/uytanonamy",methods=['POST','GET'])
+def uytanonamy():
+    if request.method == 'POST':
+        chat = request.form["chat"]
+        images=request.form["images"]
+        files = request.form["files"]
+        fv="Anomly"+session["rollnumberlogin"]
+        if images == '':
+            if files == '':
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (fv, chat, '', '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('ViewPublicChat'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (fv, chat, '', file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('ViewPublicChat'))
+
+        else:
+            if files == '':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (fv, chat, empPicture, '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('ViewPublicChat'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (fv, chat, empPicture, file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('ViewPublicChat'))
+
+@app.route("/VITU/<s1>",methods=['POST','GET'])
+def VITU(s1=""):
+    print(s1)
+    sql="select * from publicchat where slno=%s "%(s1)
+    results = pd.read_sql_query(sql, db)
+    result = results["files"][0].decode('utf-8')
+    print(result)
+    print("000000000000000000000000")
+    print(len(result))
+    if len(result)>1:
+        return render_template("VITU.html", row_val=result)
+    else:
+        return redirect(url_for("ViewPublicChat"))
+
+# for viewing image
+@app.route("/jklpou/<s1>")
+def jklpou(s1=""):
+    sql = "SELECT images from publicchat where slno='%s'" % (s1)
+    print(s1)
+    cursor.execute(sql)
+    print(sql)
+    record = cursor.fetchall()
+    image = record[0][0]
+    print("2222222222222222")
+    print("fgggggggggggg")
+    miok=len(image)
+    if miok!=0:
+        print(len(image))
+        print(type(image))
+        with open("static/dc.jpg", "wb") as img:
+            img.write(image)
+        print(s1)
+        return render_template("jklpou.html", img="/static/dc.jpg")
+    else:
+        return render_template("jklpou.html",k="mv")
+
+
+@app.route("/uyt",methods=['POST','GET'])
+def uyt():
+    if request.method == 'POST':
+        chat = request.form["chat"]
+        images=request.form["images"]
+        files = request.form["files"]
+
+        if images == '':
+            if files == '':
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["rollnumberlogin"], chat, '', '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('ViewPublicChat'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["rollnumberlogin"], chat, '', file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('ViewPublicChat'))
+
+        else:
+            if files == '':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["rollnumberlogin"], chat, empPicture, '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('ViewPublicChat'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["rollnumberlogin"], chat, empPicture, file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('ViewPublicChat'))
+
+@app.route("/Facultychat")
+def Facultychat():
+    return render_template("Facultychat.html")
+
+@app.route("/ViewStudentFacultyPublicChat")
+def ViewStudentFacultyPublicChat():
+    sql="select * from publicstudentfacultychat"
+    cursor.execute(sql)
+    cursor.fetchall()
+    result=pd.read_sql_query(sql,db)
+    return render_template("ViewStudentFacultyChat.html",col_name=result.columns.values,row_val=result.values)
+
+@app.route("/ViewStudentFacultyPrivateChat")
+def ViewStudentFacultyPrivateChat():
+    print("++++++++++++++")
+    sql="select * from privatestudentfacultychat where source='%s' "%(session["rollnumberlogin"])
+    cursor.execute(sql)
+    cursor.fetchall()
+    result = pd.read_sql_query(sql, db)
+    results=result.drop(["id","idstudent","source"],axis=1)
+    # results["REPLAy"]="REPLAY"
+    return render_template("ViewStudentFacultyPrivateChat.html",col_name=results.columns.values,row_val=results.values.tolist())
+
+@app.route("/cvbnm/<s1>")
+def cvbnm(s1=""):
+    sql = "SELECT images from privatestudentfacultychat where sl_no='%s'" % (s1)
+    print(s1)
+    cursor.execute(sql)
+    print(sql)
+    record = cursor.fetchall()
+    image = record[0][0]
+    print("2222222222222222")
+    print("fgggggggggggg")
+    len_img=len(image)
+    if len_img == 0:
+        return render_template("cvbnm.html", msj="notfound")
+    else:
+        print(type(image))
+        with open("static/ab.jpg", "wb") as img:
+            img.write(image)
+        return render_template("cvbnm.html", img="/static/ab.jpg")
+
+
+@app.route("/hyvcx/<s1>")
+def hyvcx(s1=""):
+    # for Viewing Files
+    sql="select * from privatestudentfacultychat where sl_no='%s' "%(s1)
+
+    results = pd.read_sql_query(sql, db)
+    result = results["files"][0].decode('utf-8')
+    return render_template("hyvcx.html",row_val=result)
+
+@app.route("/counter/<s1>/<s2>")
+def counter(s1=0,s2=""):
+    print(s1,s2)
+    session["lkjgddht"]=s2
+    return render_template("counter.html",s2=s2)
+
+@app.route("/uip",methods=['POST','GET'])
+def uip():
+    print("==================")
+    if request.method=='POST':
+        chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+        filez = open(files, 'r')
+        file_content = filez.read()
+        print(file_content)
+        filez.close()
+        mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+        empPicture = convertToBinaryData(mypath)
+        sql="insert into sfreplay (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+        values=(session["rollnumberlogin"],session["lkjgddht"],chat,empPicture,file_content)
+        cursor.execute(sql,values)
+        cursor.fetchall()
+        db.commit()
+        return redirect(url_for('ViewStudentFacultyPrivateChat'))
+    # return render_template("uip.html")
+
+@app.route("/Admin",methods=['POST','GET'])
+def Admin():
+    if request.method=='POST':
+        name=request.form["Name"]
+        Password=request.form["Password"]
+        if name=="Admin" and Password=="Admin":
+            session["admin"]=name
+            return render_template("Admin Home.html",msg="success",name=name)
+        else:
+            return render_template("Admin.html",message="Failure")
+    return render_template("Admin.html")
+###### PENDING
+@app.route("/portfolio")
+def portfolio():
+    sql="select * from fadmin where source='%s' "%(session["admin"])
+    cursor.execute(sql)
+    results=pd.read_sql_query(sql,db)
+    print(results)
+    result=results.drop(["ids","ido"],axis=1)
+    # result["replay"]="replay"
+    return render_template("portfolio.html",col_name=result.columns.values, row_val=result.values.tolist())
+
+@app.route("/counterhyrs/<s1>/<s2>/<s3>/<s4>")
+def counterhyrs(s1=0,s2="",s3="",s4=""):
+    print(s4)
+    session["s4"]=s4
+    return render_template("counterhyrs.html",s1=s1,s2=s2,s3=s3,s4=s4)
+
+@app.route("/uiphyyhgs",methods=['POST','GET'])
+def uiphyyhgs():
+    print("==================")
+    if request.method=='POST':
+        print("-----------------")
+        origin=request.form["origin"]
+        print(origin)
+        source=request.form["source"]
+        chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+        filez = open(files, 'r')
+        file_content = filez.read()
+        print(file_content)
+        filez.close()
+        mypath = os.path.join('D:/rupesh/Student Interaction/images_for', images)
+        empPicture = convertToBinaryData(mypath)
+        sql="insert into fadmin (origin,source,chat,images,files,ido,ids) values (%s,%s,%s,%s,%s,%s,%s)"
+        values=(origin,source,chat,empPicture,file_content,session["admin"],session["s4"])
+        cursor.execute(sql,values)
+        cursor.fetchall()
+        db.commit()
+        return redirect(url_for('portfolio'))
+    return redirect(url_for('portfolio'))
+
+    # return render_template("counterhyrs.html")
+
+@app.route("/abcghkll",methods=['POST','GET'])
+def abcghkll():
+    if request.method=='POST':
+        NAME=request.form["origin"]
+        chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+        filez = open(files, 'r')
+        file_content = filez.read()
+        print(file_content)
+        filez.close()
+        mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+        empPicture = convertToBinaryData(mypath)
+        sql="insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+        values=(NAME,chat,empPicture,file_content)
+        cursor.execute(sql,values)
+        db.commit()
+        return redirect(url_for('portfolio'))
+
+@app.route("/konhmuo/<s1>")
+def konhmuo(s1=0):
+    sql = "SELECT images from fadmin where slno='%s'" % (s1)
+    print(s1)
+    cursor.execute(sql)
+    print(sql)
+    record = cursor.fetchall()
+    image = record[0][0]
+    print("2222222222222222")
+    print("fgggggggggggg")
+    print(len(image))
+    print(type(image))
+    with open("static/fad.jpg", "wb") as img:
+        img.write(image)
+    print(s1)
+    return render_template("konhmuo.html", img="/static/fad.jpg")
+
+@app.route("/hyvcxjyuygfj/<s1>")
+def hyvcxjyuygfj(s1=0):
+    sql = "select * from fadmin where slno='%s' " % (s1)
+    cursor.execute(sql)
+    cursor.fetchall()
+    results = pd.read_sql_query(sql, db)
+    result = results["files"]
+    result = pd.DataFrame(result)
+    return render_template("hyvcx.html", col_name=result.columns.values, row_val=result.values.tolist())
+
+
+@app.route("/sdgshdfhhdfh")
+def sdgshdfhhdfh():
+    return render_template("sdgshdfhhdfh.html")
+
+@app.route("/privatechathii")
+def privatechathii():
+    return render_template("privatechathii.html")
+
+@app.route("/tyu")
+def tyu():
+    return render_template("tyu.html")
+#
+# @app.route("/pfocalty")
+# def pfocalty():
+#     return render_template("pfocalty.html")
+
+
+
+
+@app.route("/pfocalty",methods=['POST','GET'])
+def pfocalty():
+    sql="select * from freg"
+    cursor.execute(sql)
+    X = cursor.fetchall()
+    results=pd.read_sql_query(sql,db)
+    print(results)
+    global List_of_namesg
+    List_of_namesg=results["id"]
+    print("sssssssssss")
+    List_of_namesg=pd.DataFrame(List_of_namesg)
+    LIST5=[]
+    print("dddddddddd")
+    for i in List_of_namesg["id"]:
+        print("fffffff")
+        LIST5.append(i)
+    print(LIST5)
+    if request.method=='POST':
+        rollnumber=request.form["rollnumber"]
+        # declare roll number in seesion
+        session["rollnumber"] =rollnumber
+        print(session["rollnumber"])
+        sql="select * from sreg where rollnumber='%s'"%(rollnumber)
+        cursor.execute(sql)
+        rest=cursor.fetchall()
+        return render_template("Sjiojiojli.html")
+    return render_template("pfocalty.html",names=LIST5)
+
+@app.route("/Sjiojiojli",methods=['POST','GET'])
+def Sjiojiojli():
+    if request.method=='POST':
+        studentchat=request.form["chat"]
+        print(studentchat)
+        images=request.form["images"]
+        files=request.form["files"]
+        filez = open(files, 'r')
+        file_content = filez.read()
+        filez.close()
+        mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+        empPicture = convertToBinaryData(mypath)
+        sql="insert into gf (origin,source,chat,images,files) values(%s,%s,%s,%s,%s)"
+        insert_blob_tuple = (session["rollnumber"],session["rollnumberlogin"], studentchat,empPicture,file_content)
+        # sql="insert into gf (origin,source,chat,images,files,ido,ids) values(%s,%s,%s,%s,%s,%s,%s)"
+        # insert_blob_tuple = (session["Name"], session["student"], studentchat,empPicture,file_content, session["np"], session["iop"])
+        print("bbbbbbbbbbbbb")
+        cursor.execute(sql,insert_blob_tuple)
+        db.commit()
+        return render_template("Sjiojiojli.html",message="success")
+    return render_template("Sjiojiojli.html")
+
+@app.route("/Frequests")
+def Frequests():
+    return render_template("Frequests.html")
+
+
+@app.route("/ViewStudents")
+def ViewStudents():
+    sql="select * from sreg "
+    cursor.execute(sql)
+    results=pd.read_sql_query(sql,db)
+    #modifieng
+    results["Action"]="Action"
+    g=results.drop(["password","cpassword"],axis=1)
+    print(results)
+    return render_template("ViewStudents.html",col_name=g.columns.values,row_val=g.values.tolist())
+
+@app.route("/Deleting/<s1>")
+def Deleting(s1=0):
+    sql="delete from sreg where slno='%s'"%(s1)
+    cursor.execute(sql)
+    db.commit()
+    return redirect(url_for('ViewStudents'))
+
+@app.route("/Deleting1/<s1>")
+def Deleting1(s1=0):
+    sql="delete from freg where slno='%s'"%(s1)
+    cursor.execute(sql)
+    db.commit()
+    return redirect(url_for('AdminViewFaculties'))
+
+@app.route("/rollnumber/<s1>/<s2>")
+def rollnumber(s1=0,s2=""):
+    print("aaaaaa")
+    sql="select * from sreg where slno='%s'"%(s1)
+    cursor.execute(sql)
+    db.commit()
+    re=pd.read_sql_query(sql,db)
+    n=re["studentstype"].values[0]
+    if n=="Current Student":
+        rol="177"+str(randint(1111,6789))
+        sender_address = 'cse.takeoff@gmail.com'
+        sender_pass = 'Takeoff$321'
+        print("2222222222222222222222222222222222222222")
+        print(s2)
+        receiver_address = s2
+        message = MIMEMultipart()
+        message['From'] = sender_address
+        message['To'] = receiver_address
+        message.attach(MIMEText(rol, 'plain'))
+        abc= smtplib.SMTP('smtp.gmail.com', 587)
+        abc.starttls()
+        abc.login(sender_address, sender_pass)
+        text = message.as_string()
+        abc.sendmail(sender_address, receiver_address, text)
+        abc.quit()
+        session["rollnum"] = rol
+        print(rol)
+        print(type(rol))
+        sql="update sreg set rollnumber='%s' where slno=%s "%(session["rollnum"],s1)
+        cursor.execute(sql)
+        db.commit()
+        return redirect(url_for('ViewStudents'))
+    else:
+        rol = "199" + str(randint(1111, 6789))
+        sender_address = 'cse.takeoff@gmail.com'
+        sender_pass = 'Takeoff$321'
+        print("2222222222222222222222222222222222222222")
+        print(s2)
+        receiver_address = s2
+        message = MIMEMultipart()
+        message['From'] = sender_address
+        message['To'] = receiver_address
+        message.attach(MIMEText(rol, 'plain'))
+        abc= smtplib.SMTP('smtp.gmail.com', 587)
+        abc.starttls()
+        abc.login(sender_address, sender_pass)
+        text = message.as_string()
+        abc.sendmail(sender_address, receiver_address, text)
+        abc.quit()
+        session["rollnum"] = rol
+        print(rol)
+        print(type(rol))
+        sql = "update sreg set rollnumber='%s' where slno=%s " % (session["rollnum"], s1)
+        cursor.execute(sql)
+        db.commit()
+        return redirect(url_for('ViewStudents'))
+    # return render_template("ViewStudents.html")
+
+@app.route("/AdminViewFaculties")
+def AdminViewFaculties():
+    sql="select * from freg "
+    cursor.execute(sql)
+    cursor.fetchall()
+    results=pd.read_sql_query(sql,db)
+    print(results)
+    results["Action"]="Delete"
+    f=results.drop(["password","cpassword"],axis=1)
+    return render_template("Admin View Faculties.html",col_name=f.columns.values,row_val=f.values.tolist())
+
+@app.route("/id/<s1>/<s2>")
+def id(s1=0,s2=""):
+    print(s1)
+    print(s2)
+    f_id = "156V6" + str(randint(45645, 98767))
+    # sender_address = 'nagamchenchulakshmi@gmail.com'
+    # sender_pass = 'lakshmi@506'
+    # print("2222222222222222222222222222222222222222")
+    # print(s2)
+    # receiver_address = s2
+    # message = MIMEMultipart()
+    # message['From'] = sender_address
+    # message['To'] = receiver_address
+    # message.attach(MIMEText(f_id, 'plain'))
+    # abc = smtplib.SMTP('smtp.gmail.com', 587)
+    # abc.starttls()
+    # abc.login(sender_address, sender_pass)
+    # text = message.as_string()
+    # abc.sendmail(sender_address, receiver_address, text)
+    # abc.quit()
+    print(f_id)
+    session["f_id"] = f_id
+    print(session["f_id"])
+    sql="update freg set id='%s' where slno=%s "%(session["f_id"],s1)
+    cursor.execute(sql)
+    db.commit()
+    return redirect(url_for('AdminViewFaculties'))
+
+@app.route("/public")
+def public():
+    sql = "select * from publicchat "
+    cursor.execute(sql)
+    cursor.fetchall()
+    result = pd.read_sql_query(sql, db)
+    result["action"]="Reply"
+    # print(result["action"])
+    p=session["admin"]
+    return render_template("public.html", col_name=result.columns.values, row_val=result.values.tolist(),p=p)
+
+@app.route("/swer/<s1>")
+def swer(s1=0,s2=""):
+    print(s1,s2)
+    # for Viewing Files
+    sql = "select * from publicchat where slno='%s' " % (s1)
+    results = pd.read_sql_query(sql, db)
+    result = results["files"][0].decode('utf-8')
+    return render_template("swer.html", row_val=result)
+
+@app.route("/replay/<p>",methods=['POST','GET'])
+def replay(p=""):
+    print("aaaaaaaaaaaaaaaaaaaaaaaaaa")
+    print(p)
+    return render_template("replay.html",p=p)
+
+@app.route("/abc",methods=['POST','GET'])
+def abc():
+    if request.method=='POST':
+        chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+        NAME="Admin"
+        if images == '':
+            if files == '':
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (NAME, chat, '', '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('public'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (NAME, chat, '', file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('public'))
+
+        else:
+            if files == '':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (NAME, chat, empPicture, '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('public'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (NAME, chat, empPicture, file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('public'))
+
+@app.route('/Anonamyreplay')
+def Anonamyreplay():
+    return render_template("Anonamyreplay.html")
+#
+@app.route("/anaol",methods=["POST","GET"])
+def anaol():
+    if request.method=='POST':
+        chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+        NAME="Anomoly"
+
+        if images == '':
+            if files == '':
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (NAME, chat, '', '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('public'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (NAME, chat, '', file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('public'))
+
+        else:
+            if files == '':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (NAME, chat, empPicture, '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('public'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (NAME, chat, empPicture, file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('public'))
+
+    # return render_template("anaol.html")
+
+@app.route("/qwsdr/<s1>")
+def qwsdr(s1=0):
+    sql = "SELECT images from publicchat where slno='%s'" % (s1)
+    print(s1)
+    cursor.execute(sql)
+    print(sql)
+    record = cursor.fetchall()
+    image = record[0][0]
+    print("2222222222222222")
+    print("fgggggggggggg")
+    len_img=len(image)
+    if len_img==0:
+        return render_template("qwsdr.html",msj="notfound")
+    else:
+        print(type(image))
+        with open("static/sdfgh.jpg", "wb") as img:
+            img.write(image)
+        print(s1)
+        return render_template("qwsdr.html", img="/static/sdfgh.jpg")
+
+@app.route("/s",methods=['POST','GET'])
+def s():
+    try:
+        if request.method == 'POST':
+            chat = request.form["ques"]
+            images = request.form["opts"]
+
+        return render_template("s.html",a=chat,b=int(images))
+    except:
+        return render_template("s.html")
+
+
+# @app.route("/ta",methods=['POST','GET'])
+# def ta():
+#     #global q
+#     if request.method == 'POST':
+#         q = request.form["q"]
+#         o = int(request.form["o"])
+#         y=[]
+#         for i in range(o):
+#            a=request.form["0" + str(i)]
+#            pdpd=a
+#            y.append(pdpd)
+#         s =""
+#         for item in y:
+#             if item==y[0]:
+#                 s +=item
+#             else:
+#                  s +=";" +item
+#         print(s)
+#     return render_template("posting1.html")
+
+@app.route("/posting",methods=['POST','GET'])
+def posting():
+    if request.method=='POST':
+        print("111111111")
+        if request.method == 'POST':
+            q = request.form["q"]
+            o = int(request.form["o"])
+            y = []
+            for i in range(o):
+                a = request.form["0" + str(i)]
+                pdpd = a
+                y.append(pdpd)
+            s = ""
+            for item in y:
+                if item == y[0]:
+                    s += item
+                else:
+                    s += ";" + item
+            try:
+                sql="select * from que"
+                print("22222222")
+                cursor.execute(sql)
+                results=cursor.fetchall()
+                print("333333")
+                ssder=results[0][0]
+                print(ssder)
+                KI=int(ssder)
+                print(type(KI))
+                if ssder==0:
+                    sql="insert into que (question,question_val) values (%s,%s)"%(q,s)
+                    cursor.execute(sql)
+                    print("4444444")
+                    db.commit()
+                    sql = "truncate table calculation"
+                    cursor.execute(sql)
+                    db.commit()
+                    return render_template("posting.html")
+
+                else:
+                    print("_______________________________")
+                    print(q,KI)
+                    sql="UPDATE que SET question='%s',question_val='%s' WHERE sl='%s'"%(q,s,KI)
+                    cursor.execute(sql)
+                    db.commit()
+                    sql = "truncate table calculation"
+                    cursor.execute(sql)
+                    db.commit()
+                    return render_template("posting.html",q=q,k=KI)
+            except:
+                print("hello")
+                sql = "insert into que (question,question_val) values ('%s','%s')" % (q, s)
+                cursor.execute(sql)
+                db.commit()
+                print("55555555")
+                sql = "truncate table calculation"
+                cursor.execute(sql)
+                print("666666666")
+                db.commit()
+                return render_template("posting.html")
+        return render_template("posting.html")
+    return render_template("posting.html")
+
+
+@app.route("/posting1",methods=['POST','GET'])
+def posting1():
+    opt2=request.form["opt1"]
+    print(opt2)
+
+
+# @app.route("/posting",methods=['POST','GET'])
+# def posting():
+#     if request.method=='POST':
+#         question=request.form["question"]
+#         opt1=request.form["opt1"]
+#         opt2=request.form["opt2"]
+#         opt3=request.form["opt3"]
+#         opt4=request.form["opt4"]
+#         sql="select * from questiontable"
+#         cursor.execute(sql)
+#         results=cursor.fetchall()
+#         ssder=results[0][0]
+#         KI=int(ssder)
+#         print(type(KI))
+#         if ssder==0:
+#             sql="insert into questiontable (question,opt1,opt2,opt3,opt4) values (%s,%s,%s,%s,%s)"%(question,opt1,opt2,opt3,opt4)
+#             cursor.execute(sql)
+#             db.commit()
+#             sql = "truncate table calculation"
+#             cursor.execute(sql)
+#             db.commit()
+#
+#         else:
+#             print("_______________________________")
+#             cursor.execute("UPDATE questiontable SET question=%s,opt1=%s, opt2=%s, opt3=%s, opt4=%s WHERE slno=%s", (question,opt1,opt2,opt3,opt4,KI))
+#             print("MMMMMMMMMMMMMMM")
+#             db.commit()
+#             sql = "truncate table calculation"
+#             cursor.execute(sql)
+#             db.commit()
+#
+#     return render_template("posting.html")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@app.route("/Faculty",methods=['POST','GET'])
+def Faculty():
+    if request.method=='POST':
+        name=request.form["FacultyName"]
+        Email=request.form["Email"]
+        Number=request.form["Number"]
+        gender=request.form["Gender"]
+        password=request.form["password"]
+        cpassword=request.form["cpassword"]
+        id="Request"
+        Address=request.form["Address"]
+        if password == cpassword:
+            sql="insert into freg(FacultyName,Email,Number,Gender,id,Address,password,cpassword) values(%s,%s,%s,%s,%s,%s,%s,%s)"
+            val=(name,Email,Number,gender,id,Address,password,cpassword)
+            cursor.execute(sql,val)
+            db.commit()
+            return render_template("Faculty.html",msg="success")
+        else:
+            return render_template("Faculty.html",msg1="success")
+
+    return render_template("Faculty.Html")
+
+@app.route('/FacultyLogin',methods=['POST','GET'])
+def FacultyLogin():
+    if request.method=='POST':
+        id=request.form["id"]
+        password=request.form["password"]
+        try:
+            sql="select * from freg where id='%s' and password= '%s' "%(id,password)
+            X = cursor.execute(sql)
+            results=cursor.fetchall()
+            if X > 0:
+                print("results[0]")
+                session["id"] = results[0][0]
+                session["FacultyName"]=results[0][1]
+                session["EMAIL_id"]=results[0][2]
+                session["ioyiu"]=results[0][5]
+                print(session["EMAIL_id"])
+                print(session["id"])
+                Name = results[0][1]
+                return render_template("FacultyHome.html",name=Name)
+            else:
+                return render_template("FacultyLogin.html", mseg="not found")
+        except:
+            return render_template("FacultyLogin.html")
+    return render_template("FacultyLogin.html")
+
+@app.route("/jiods")
+def jiods():
+    return render_template('jiods.html')
+
+@app.route("/ppadmin")
+def ppadmin():
+    return render_template("ppadmin.html")
+
+@app.route("/pppostadmin",methods=["POST","GET"])
+def pppostadmin():
+    if request.method == 'POST':
+        chat = request.form["chat"]
+        images = request.form["images"]
+        files = request.form["files"]
+        filez = open(files, 'r')
+        file_content = filez.read()
+        print(file_content)
+        filez.close()
+        df="admin"
+        mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+        empPicture = convertToBinaryData(mypath)
+        sql = "insert into fadmin (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+        values = (session["ioyiu"],df, chat, empPicture, file_content)
+        cursor.execute(sql, values)
+        db.commit()
+        return render_template("pppostadmin.html",msg="success")
+    return render_template("pppostadmin.html")
+
+@app.route("/FacultyViewProfile")
+def FacultyViewProfile():
+    print("6666666666")
+    sql="select * from freg where slno='%s' "%(session["id"])
+    cursor.execute(sql)
+    results=pd.read_sql_query(sql,db)
+    result=results.drop(["cpassword"],axis=1)
+    print(result)
+    return render_template("Faculty View Profile.html",col_name=result.columns.values,row_val=result.values.tolist())
+
+@app.route("/FaculyVI")
+def FaculyVI():
+    return render_template("FaculyVI.html")
+
+@app.route("/facultyviewstudentsprivatechats")
+def facultyviewstudentsprivatechats():
+    print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{")
+    # sql="select * from sfreplay where source='%s' " %(session["ioyiu"])
+    sql="select * from privatestudentfacultychat where source='%s' " %(session["ioyiu"])
+
+    cursor.execute(sql)
+    results=pd.read_sql_query(sql,db)
+    result=results.drop(["source","id","idstudent"],axis=1)
+    # result["replay"]="Replay"
+    print(results)
+    return render_template("facultyviewstudentsprivatechats.html",col_name=result.columns.values,row_val=result.values.tolist())
+
+
+@app.route("/replkiliay/<s1>/<s2>",methods=['POST','GET'])
+def replkiliay(s1=0,s2=""):
+    print("aaaaaaaaaaaaaaaaaaaaaaaaaa")
+    # print(p)
+    session["s222"]=s2
+    print(s1,s2)
+    return render_template("replkiliay.html",s2=s2)
+
+@app.route("/abcmnopq",methods=['POST','GET'])
+def abcmnopq():
+    if request.method=='POST':
+        chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+        filez = open(files, 'r')
+        file_content = filez.read()
+        print(file_content)
+        filez.close()
+        mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+        empPicture = convertToBinaryData(mypath)
+        sql="insert into privatestudentfacultychat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+        values=(session["s222"],session["ioyiu"],chat,empPicture,file_content)
+        cursor.execute(sql,values)
+        db.commit()
+        return redirect(url_for('facultyviewstudentsprivatechats'))
+
+@app.route("/qwsdrlopaswe/<s1>")
+def qwsdrlopaswe(s1=0):
+    sql = "SELECT images from privatestudentfacultychat where source='%s'" % (session["ioyiu"])
+    print(s1)
+    cursor.execute(sql)
+    print(sql)
+    record = cursor.fetchall()
+    image = record[0][0]
+    print("2222222222222222")
+    print("fgggggggggggg")
+    print(len(image))
+    print(type(image))
+    with open("static/sdfgh.jpg", "wb") as img:
+        img.write(image)
+    print(s1)
+    return render_template("qwsdrlopaswe.html", img="/static/sdfgh.jpg")
+
+@app.route("/jhklhlh/<s1>")
+def jhklhlh(s1=0,s2=""):
+    sql = "select * from privatestudentfacultychat where sl_no='%s' " % (s1)
+    results = pd.read_sql_query(sql, db)
+    result = results["files"][0].decode('utf-8')
+    return render_template("jhklhlh.html",  row_val=result)
+
+
+@app.route("/facultyFacultyposts")
+def facultyFacultyposts():
+    return render_template("facultyFacultyposts.html")
+
+@app.route("/PRIvateFacltyFaculty")
+def PRIvateFacltyFaculty():
+    sql="select * from facultyfacultyprivatechat where origin='%s'"%(session["ioyiu"])
+    cursor.execute(sql)
+    print("?????????????????????????????????????????????????????????????????")
+    results = pd.read_sql_query(sql, db)
+    result = results.drop(["id","origin","id"], axis=1)
+    # result["Action"]="Replay"
+    print(result.columns.values)
+    return render_template("PRIvateFacltyFaculty.html",col_name=result.columns.values,row_val=result.values.tolist())
+
+@app.route("/vbasdf/<s1>")
+def vbasdf(s1=0):
+    sql = "SELECT images from facultyfacultyprivatechat where sl_no='%s'" % (s1)
+    print(s1)
+    cursor.execute(sql)
+    print(sql)
+    record = cursor.fetchall()
+    image = record[0][0]
+    print("2222222222222222")
+    print("fgggggggggggg")
+    print(len(image))
+    print(type(image))
+    with open("static/klo.jpg", "wb") as img:
+        img.write(image)
+    print(s1)
+    return render_template("vbasdf.html", img="/static/klo.jpg")
+
+@app.route("/mlpgh/<s1>")
+def mlpgh(s1=0):
+        sql = "select * from facultyfacultyprivatechat where sl_no='%s' " % (s1)
+        results = pd.read_sql_query(sql, db)
+        result = results["files"][0].decode('utf-8')
+        print(result)
+        print("LLLLL")
+        return render_template("mlpgh.html",  row_val=result)
+    # return render_template(".html")
+
+@app.route("/aqsx/<s1>/<s2>/<s3>")
+def aqsx(s1=0,s2="",s3=""):
+    print(s1,s2,s3)
+    session["hihiukfdtrhdtjf"]=s3
+    return render_template("aqsx.html",s2=s2,s3=s3)
+
+@app.route("/mkolbfsd",methods=['POST','GET'])
+def mkolbfsd():
+    if request.method=='POST':
+        # NAME=request.form["origin"]
+        # source=request.form["source"]
+        chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+
+        if images == '':
+            if files == '':
+                sql = "insert into facultyfacultyprivatechat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+                values = (session["ioyiu"], session["hihiukfdtrhdtjf"], chat, '', '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('PRIvateFacltyFaculty'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                filez.close()
+                sql = "insert into facultyfacultyprivatechat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+                values = (session["ioyiu"], session["hihiukfdtrhdtjf"], chat, '', file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('PRIvateFacltyFaculty'))
+        else:
+            if files == '':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into facultyfacultyprivatechat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+                values = (session["ioyiu"], session["hihiukfdtrhdtjf"], chat, empPicture, '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('PRIvateFacltyFaculty'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into facultyfacultyprivatechat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+                values = (session["ioyiu"], session["hihiukfdtrhdtjf"], chat, empPicture, file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('PRIvateFacltyFaculty'))
+
+
+@app.route("/FacultyViewStudentsRequests")
+def FacultyViewStudentsRequests():
+    sql="select * from publicstudentfacultychat "
+    cursor.execute(sql)
+    cursor.fetchall()
+    results=pd.read_sql_query(sql,db)
+    print(results)
+    return render_template("Faculty View Students Requests.html",col_name=results.columns.values,row_val=results.values)
+
+@app.route("/FacultyChat")
+def FacultyChat():
+    return render_template("FacultyChatHome.html")
+
+@app.route("/facultystudentprivatechat",methods=['POST','GET'])
+def facultystudentprivatechat():
+    sql = "select * from sreg"
+    cursor.execute(sql)
+    X = cursor.fetchall()
+    results = pd.read_sql_query(sql, db)
+    global List_of_names1
+    List_of_names1 = results["rollnumber"]
+    List_of_names1 = pd.DataFrame(List_of_names1)
+    LIST5 = []
+    for i in List_of_names1["rollnumber"]:
+        LIST5.append(i)
+    print(LIST5)
+    if request.method == 'POST':
+        print("888888888888888888888888888888888888")
+        h = request.form["student"]
+        sql = "select * from sreg where rollnumber='%s'" % (h)
+        cursor.execute(sql)
+        db.commit()
+        results=pd.read_sql_query(sql,db)
+        session["klf"]=results["rollnumber"].values[0]
+        session["etes"]=str(results["slno"].values[0])
+        return render_template("facultySTudent.html")
+    return render_template("facultystudentprivatechat.html",names=LIST5)
+
+@app.route("/lpmji",methods=['POST','GET'])
+def lpmji():
+    print("(((((((((((((((((((((((")
+    if request.method == 'POST':
+        print("???????????????????")
+        chat = request.form["chat"]
+        images = request.form["images"]
+        files = request.form["files"]
+
+
+        if images=='':
+            if files=='':
+                sql = "insert into privatestudentfacultychat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+                values = (session["ioyiu"], session["klf"], chat, '', '')
+                cursor.execute(sql, values)
+                cursor.fetchall()
+                db.commit()
+                return redirect(url_for('facultystudentprivatechat'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                filez.close()
+                sql = "insert into privatestudentfacultychat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+                values = (session["ioyiu"], session["klf"], chat, '', file_content)
+                cursor.execute(sql, values)
+                cursor.fetchall()
+                db.commit()
+                return redirect(url_for('facultystudentprivatechat'))
+        else:
+            if files=='':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into privatestudentfacultychat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+                values = (session["ioyiu"], session["klf"], chat,empPicture,'')
+                cursor.execute(sql, values)
+                cursor.fetchall()
+                db.commit()
+                return redirect(url_for('facultystudentprivatechat'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into privatestudentfacultychat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+                values = (session["ioyiu"], session["klf"], chat, empPicture, file_content)
+                cursor.execute(sql, values)
+                cursor.fetchall()
+                db.commit()
+                return redirect(url_for('facultystudentprivatechat'))
+
+
+@app.route("/FacultyPrivateAddRequestsToFaculties",methods=['POST','GET'])
+def FacultyPrivateAddRequestsToFaculties():
+    try:
+        sql="select * from freg"
+        cursor.execute(sql)
+        X = cursor.fetchall()
+        results = pd.read_sql_query(sql, db)
+        global List_of_names
+        List_of_names = results["id"]
+        List_of_names = pd.DataFrame(List_of_names)
+        LIST = []
+        for i in List_of_names["id"]:
+            if i==session["ioyiu"]:
+                continue
+            LIST.append(i)
+        print(LIST)
+        if request.method == 'POST':
+            print("hello")
+            Student = request.form["id"]
+            sql="select * from freg where id='%s'"%(Student)
+            print("wello")
+            cursor.execute(sql)
+            print("kkkkkkkkkkkkkkkkkk")
+            results=cursor.fetchall()
+            print(results)
+            session["f_id"]=results[0][5]
+            # print(session["f_id"])
+            # session["Faculty"] = Student
+            return render_template("Faculty Faculty Private Chat.html")
+        return render_template("Faculty Add Requests To Faculties.html", names=LIST)
+    except:
+        return render_template("Faculty Add Requests To Faculties.html",msg="a")
+
+
+@app.route("/AddFacultyPrivateTable",methods=['POST','GET'])
+def AddFacultyPrivateTable():
+    if request.method=='POST':
+        chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+
+        if images=='':
+            if files=='':
+                sql = "insert into facultyfacultyprivatechat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+                values = (session["f_id"], session["ioyiu"], chat, '', '')
+                cursor.execute(sql, values)
+                cursor.fetchall()
+                db.commit()
+                return render_template("Faculty Faculty Private Chat.html", message="success")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                filez.close()
+                sql = "insert into facultyfacultyprivatechat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+                values = (session["f_id"], session["ioyiu"], chat, '', file_content)
+                cursor.execute(sql, values)
+                cursor.fetchall()
+                db.commit()
+                return render_template("Faculty Faculty Private Chat.html", message="success")
+        else:
+            if files=='':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into facultyfacultyprivatechat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+                values = (session["f_id"], session["ioyiu"], chat, empPicture, '')
+                cursor.execute(sql, values)
+                cursor.fetchall()
+                db.commit()
+                return render_template("Faculty Faculty Private Chat.html", message="success")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into facultyfacultyprivatechat (origin,source,chat,images,files) values (%s,%s,%s,%s,%s)"
+                values = (session["f_id"], session["ioyiu"], chat, empPicture, file_content)
+                cursor.execute(sql, values)
+                cursor.fetchall()
+                db.commit()
+                return render_template("Faculty Faculty Private Chat.html", message="success")
+    return render_template("Faculty Faculty Private Chat.html")
+
+@app.route("/FacultyPublicChat",methods=['POST','GET'])
+def FacultyPublicChat():
+    if request.method=='POST':
+        chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+        if images=='':
+            if files=='':
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["ioyiu"], chat, '', '')
+                cursor.execute(sql, values)
+                db.commit()
+                return render_template("Faculty Public Chat.html", message="success")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                filez.close()
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["ioyiu"], chat, '', file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return render_template("Faculty Public Chat.html", message="success")
+        else:
+            if files=='':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["ioyiu"], chat, empPicture, '')
+                cursor.execute(sql, values)
+                db.commit()
+                return render_template("Faculty Public Chat.html", message="success")
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["ioyiu"], chat, empPicture, file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return render_template("Faculty Public Chat.html", message="success")
+    return render_template("Faculty Public Chat.html")
+
+@app.route("/poli")
+def poli():
+    sql = "select * from publicchat "
+    nh = "Anomly" + session["ioyiu"]
+    result = pd.read_sql_query(sql, db)
+    return render_template("poli.html",col_name=result.columns.values,row_val=result.values.tolist(),k=session["ioyiu"],nh=nh)
+
+@app.route("/wertkiutiyk")
+def wertkiutiyk():
+    return render_template("wertkiutiyk.html")
+#
+@app.route("/replna")
+def replna():
+    return render_template("/weran.html")
+
+@app.route("/uytanonamykhkjh",methods=['POST','GET'])
+def uytanonamykhkjh():
+    if request.method == 'POST':
+        chat = request.form["chat"]
+        images=request.form["images"]
+        files = request.form["files"]
+        nh = "Anomly" + session["ioyiu"]
+        if images == '':
+            if files == '':
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (nh, chat, '', '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('poli'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (nh, chat, '', file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('poli'))
+
+        else:
+            if files == '':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (nh, chat, empPicture, '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('poli'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (nh , chat, empPicture, file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('poli'))
+
+
+
+@app.route("/abcd",methods=['POST','GET'])
+def abcd():
+    if request.method=='POST':
+        chat=request.form["chat"]
+        images=request.form["images"]
+        files=request.form["files"]
+        if images == '':
+            if files == '':
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["ioyiu"], chat, '', '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('poli'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["ioyiu"], chat, '', file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('poli'))
+
+        else:
+            if files == '':
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["ioyiu"], chat, empPicture, '')
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('poli'))
+            else:
+                filez = open(files, 'r')
+                file_content = filez.read()
+                print(file_content)
+                filez.close()
+                mypath = os.path.join('D:/rupesh/Student Interaction/images_for/', images)
+                empPicture = convertToBinaryData(mypath)
+                sql = "insert into publicchat (origin,chat,images,files) values (%s,%s,%s,%s)"
+                values = (session["ioyiu"], chat, empPicture, file_content)
+                cursor.execute(sql, values)
+                db.commit()
+                return redirect(url_for('poli'))
+
+@app.route("/qwsdir/<s1>")
+def qwsdir(s1=0):
+    sql = "SELECT images from publicchat where slno='%s'" % (s1)
+    print(s1)
+    cursor.execute(sql)
+    print(sql)
+    record = cursor.fetchall()
+    image = record[0][0]
+    print("2222222222222222")
+    print("fgggggggggggg")
+    print(len(image))
+    print(type(image))
+    with open("static/sdfgh.jpg", "wb") as img:
+        img.write(image)
+    print(s1)
+    return render_template("qwsdir.html", img="/static/sdfgh.jpg")
+
+@app.route("/sweor/<s1>")
+def sweor(s1=0,s2=""):
+    print('arrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr')
+    sql = "select * from publicchat where slno='%s' " % (s1)
+    results = pd.read_sql_query(sql, db)
+    print(results)
+    result = results["files"][0].decode('utf-8')
+    print(result)
+    print("000000000000000000000000")
+    print(len(result))
+    if len(result) > 1:
+        return render_template("sweor.html", row_val=result)
+    else:
+        return redirect(url_for("ViewPublicChat"))
+
+    # sql = "select * from publicchat where slno='%s' " % (s1)
+    # results = pd.read_sql_query(sql, db)
+    # result = results["files"][0].decode('utf-8')
+    # return render_template("sweor.html", row_val=result)
+
+#
+@app.route("/postingjs",methods=['POST','GET'])
+def postingjs():
+    if request.method=='POST':
+        print("111111111")
+        question=request.form["question"]
+        print(question,"111")
+        opt_val=request.form["question_val"]
+        print("00",opt_val)
+        try:
+            sql="select * from que"
+            print("22222222")
+            cursor.execute(sql)
+            results=cursor.fetchall()
+            print("333333")
+            ssder=results[0][0]
+            print(ssder)
+            KI=int(ssder)
+            print(type(KI))
+            if ssder==0:
+                sql="insert into que (question,question_val) values (%s,%s)"%(question,opt_val)
+                cursor.execute(sql)
+                print("4444444")
+                db.commit()
+                sql = "truncate table calculation"
+                cursor.execute(sql)
+                db.commit()
+                return render_template("posting.html")
+
+            else:
+                print("_______________________________")
+                print(question,KI)
+                sql="UPDATE que SET question='%s',question_val='%s' WHERE sl='%s'"%(question,opt_val,KI)
+                cursor.execute(sql)
+                db.commit()
+                sql = "truncate table calculation"
+                cursor.execute(sql)
+                db.commit()
+                return render_template("posting.html",q=question,k=KI)
+        except:
+            print("hello")
+            sql = "insert into que (question,question_val) values ('%s','%s')" % (question, opt_val)
+            cursor.execute(sql)
+            db.commit()
+            print("55555555")
+            sql = "truncate table calculation"
+            cursor.execute(sql)
+            print("666666666")
+            db.commit()
+            return render_template("posting.html")
+    return render_template("posting.html")
+
+
+if (__name__)==("__main__"):
+    app.run(debug=True)
